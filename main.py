@@ -1,9 +1,9 @@
-# src/main.py 
-from src.algorithms import bfs, dfs, iddfs, greedy_best_first, astar
+# src/main.py
+from src.algorithms import bfs, dfs, iddfs, greedy_best_first, astar, path_cost
 from src.graph_loader import load_set1_graph
 from src.graph_generator import GraphGenerator
-from src.heuristics import euclidean_h, manhattan_h
-from src.visualization import SearchVisualizer
+from src.heuristics import get_heuristic
+from src.visualization import draw_path
 from src.benchmark import BenchmarkSuite
 import networkx as nx
 import matplotlib.pyplot as plt
@@ -66,7 +66,7 @@ def single_algorithm_mode(G):
                 max_depth = int(depth_input)
 
         # Choose heuristic for informed searches
-        heuristic = "euclidean"
+        heuristic_name = "euclidean"
         if algo in ["Greedy", "A*"]:
             print("\nAvailable heuristics:")
             print("1. Euclidean distance")
@@ -75,24 +75,20 @@ def single_algorithm_mode(G):
             print("4. Zero heuristic (uniform cost)")
 
             heuristic_choice = input("Choose heuristic (1-4, default 1): ").strip() or "1"
-            heuristics = {
-                "1": "euclidean", "2": "manhattan", "3": "chebyshev", "4": "zero"
+            heuristic_map = {
+                "1": "euclidean",
+                "2": "manhattan",
+                "3": "chebyshev",
+                "4": "zero"
             }
-            heuristic = heuristics.get(heuristic_choice, "euclidean")
+            heuristic_name = heuristic_map.get(heuristic_choice, "euclidean")
+            print(f"Using {heuristic_name} heuristic...")
 
         # Run algorithm
-        print(f"\nRunning {algo} with {heuristic} heuristic...")
+        print(f"\nRunning {algo} with {heuristic_name} heuristic...")
 
-        h = euclidean_h(G, goal)  # Default, will be overridden if needed
-        if heuristic == "manhattan":
-            from src.heuristics import manhattan_h
-            h = manhattan_h(G, goal)
-        elif heuristic == "chebyshev":
-            from src.heuristics import chebyshev_h
-            h = chebyshev_h(G, goal)
-        elif heuristic == "zero":
-            from src.heuristics import zero_h
-            h = zero_h(G, goal)
+        # Get the heuristic function
+        h = get_heuristic(G, goal, heuristic_name)
 
         algorithm_functions = {
             "BFS": lambda: bfs(G, start, goal),
@@ -124,26 +120,10 @@ def single_algorithm_mode(G):
         viz = input("\nShow visualization? (y/n): ").strip().lower()
         if viz == 'y':
             try:
-                pos = nx.get_node_attributes(G, 'pos') or nx.spring_layout(G, seed=42)
-
-                plt.figure(figsize=(12, 8))
-                nx.draw(G, pos, with_labels=True, node_color='lightblue', node_size=300, font_size=8)
-
-                if path:
-                    # Highlight the path
-                    path_edges = list(zip(path[:-1], path[1:]))
-                    nx.draw_networkx_edges(G, pos, edgelist=path_edges, edge_color='red', width=3)
-                    nx.draw_networkx_nodes(G, pos, nodelist=path, node_color='red', node_size=500)
-                    nx.draw_networkx_nodes(G, pos, nodelist=[start, goal], node_color=['green', 'orange'],
-                                           node_size=700)
-                    nx.draw_networkx_labels(G, pos, {start: start, goal: goal}, font_size=10, font_weight='bold')
-
-                plt.title(f"{algo} Path: {start} → {goal} (Cost: {metrics.get('path_cost', 'N/A'):.2f})")
-                plt.tight_layout()
-                plt.show()
-
+                draw_path(G, path, title=f"{algo} Path: {start} → {goal}")
             except Exception as e:
                 print(f"Visualization error: {e}")
+                print("But the search completed successfully!")
 
         # Ask to continue
         print(f"\n{'=' * 50}")
@@ -186,7 +166,7 @@ def batch_comparison_mode(G):
         heuristics = {
             "1": "euclidean", "2": "manhattan", "3": "chebyshev", "4": "zero"
         }
-        heuristic = heuristics.get(heuristic_choice, "euclidean")
+        heuristic_name = heuristics.get(heuristic_choice, "euclidean")
 
         # Choose number of repeats
         repeats = input("Number of runs per algorithm (default 5): ").strip()
@@ -194,7 +174,7 @@ def batch_comparison_mode(G):
 
         print(f"\nRunning batch comparison with {repeats} repeats...")
         benchmark_suite = BenchmarkSuite()
-        df = benchmark_suite.batch_compare(G, start, goal, repeats=repeats, heuristic_name=heuristic)
+        df = benchmark_suite.batch_compare(G, start, goal, repeats=repeats, heuristic_name=heuristic_name)
 
         print(f"\n{'=' * 60}")
         print(f"BENCHMARK RESULTS: {start} → {goal} ({repeats} runs)")
